@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import {config} from "./config.js";
 
+// Function to connect to the MongoDB database
 const connectDB = async ()=>{
     const mongoURI = process.env.MONGO_URI;
 

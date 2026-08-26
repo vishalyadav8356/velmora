@@ -1,19 +1,16 @@
-import React from 'react'
-import { AuthProvider } from './features/auth/utils/auth.context.jsx'
-import {Routes, Route} from 'react-router-dom'
-import Login from './features/auth/pages/Login.jsx'
-import Register from './features/auth/pages/Register.jsx'
+import AppRoutes from "./routes/AppRoutes";
 
-const App = () => {
+import { CartProvider } from "./context/cart.context";
+import { WishlistProvider } from "./context/wishlist.context";
+
+function App() {
   return (
-    <AuthProvider>
-      <Routes>
-        <Route path="/" element={<div>Home</div>} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-      </Routes>
-    </AuthProvider>
-  )
+    <CartProvider>
+      <WishlistProvider>
+        <AppRoutes />
+      </WishlistProvider>
+    </CartProvider>
+  );
 }
 
-export default App
+export default App;

@@ -103,7 +103,7 @@ export const googleCallback = async (req, res) => {
 
     res.cookie("token", token)
     
-    res.redirect(`http://localhost:3000/`)
+    res.redirect(`http://localhost:3000/api/products`)
 
 }
 

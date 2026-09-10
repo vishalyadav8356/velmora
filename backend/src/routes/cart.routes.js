@@ -6,33 +6,32 @@ import { addToCart, getCart, incrementCartItemQuantity, decrementCartItemQuantit
 
 const router = express.Router();
 
-//@route POST /api/cart/add/:productId/:variantId
+//@route POST /api/cart/add/:productId
 //description: Add a itmes to the cart
 //access Private (User only) 
-//@arguments: productId, variantId
 //@arguments: quantity (optional, default is 1)   
 
-router.post("/add/:productId/:variantId", authenticateUser, validateAddToCart, addToCart);
+router.post("/add/:productId", authenticateUser, validateAddToCart, addToCart);
 
 //@route GET /api/cart
 //description: Get the cart of the user
 //access Private (User only)
 router.get("/", authenticateUser, getCart);
 
-//@route PATCH /api/cart/quantity/increment/:productId/:variantId
+//@route PATCH /api/cart/quantity/increment/:productId
 //description: increment item quantity in the cart by one
 //access Private (User only)
-router.patch("/quantity/increment/:productId/:variantId", authenticateUser, validateIncrementCartItemQuantity, incrementCartItemQuantity);
+router.patch("/quantity/increment/:productId", authenticateUser, validateIncrementCartItemQuantity, incrementCartItemQuantity);
 
-//@route PATCH /api/cart/quantity/decrement/:productId/:variantId
+//@route PATCH /api/cart/quantity/decrement/:productId
 //description: decrement item quantity in the cart by one
 //access Private (User only)
-router.patch("/quantity/decrement/:productId/:variantId", authenticateUser, validateDecrementCartItemQuantity, decrementCartItemQuantity);
+router.patch("/quantity/decrement/:productId", authenticateUser, validateDecrementCartItemQuantity, decrementCartItemQuantity);
 
-//@route DELETE /api/cart/remove/:productId/:variantId
+//@route DELETE /api/cart/remove/:productId
 //description: remove an item from the cart
 //access Private (User only)
-router.delete("/remove/:productId/:variantId", authenticateUser, validateRemoveCartItem, removeCartItem);
+router.delete("/remove/:productId", authenticateUser, validateRemoveCartItem, removeCartItem);
 
 //@route POST /api/cart/payment/create/order
 //description: create an order after payment

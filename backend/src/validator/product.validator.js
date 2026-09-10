@@ -26,5 +26,9 @@ export const createProductValidator = [
         .optional()
         .isIn(["USD", "EUR", "GBP", "JPY", "INR"]).withMessage("Invalid currency"),
 
+    body("stock")
+        .optional()
+        .isInt({ min: 0 }).withMessage("Stock must be a non-negative integer"),
+
     validateRequest
 ]

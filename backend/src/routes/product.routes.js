@@ -1,7 +1,7 @@
 import {Router} from "express";
 import {authenticateSeller} from "../middlewares/auth.middlewares.js";
 import { createProductValidator } from "../validator/product.validator.js";
-import { createProduct, getProductsSeller, getAllProducts, getProductDetails, addProductVariant } from "../controllers/product.controller.js";
+import { createProduct, getProductsSeller, getAllProducts, getProductDetails } from "../controllers/product.controller.js";
 import multer from "multer";
 
 // Multer configuration for file uploads
@@ -34,11 +34,5 @@ router.get("/", getAllProducts);
 //description: Get product details by ID
 //access Public
 router.get("/detail/:id", getProductDetails);
-
-//@route POST /api/products/productId/variants
-//description: Create a new product variant
-//access Private (Seller only)
-//at a time 7 images can be uploaded
-router.post("/:productId/variants", authenticateSeller, upload.array("images", 7), addProductVariant);
 
 export default router;

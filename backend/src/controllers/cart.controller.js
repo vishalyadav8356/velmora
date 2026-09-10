@@ -1,46 +1,61 @@
 import cartModel from "../models/cart.model.js";
 import productModel from "../models/product.model.js";
-import { stockOfVariant } from "../dao/product.dao.js";
+import mongoose from "mongoose";
+import { stockOfProduct } from "../dao/product.dao.js";
 import { createOrder } from "../services/payment.service.js";
 import { getCartDetails } from "../dao/cart.dao.js";
 import paymentModel from "../models/payment.model.js";
 import { validatePaymentVerification } from "razorpay/dist/utils/razorpay-utils.js";
 import { config } from "../config/config.js";
 
-//add a product to the cart of the user
-export const addToCart = async (req, res) => {
-  const { productId, variantId } = req.params;
-  const { quantity = 1 } = req.body;
-
-  const product = await productModel.findOne({
-    _id: productId,
-    "variants._id": variantId,
-  });
+const getProductAndStock = async (productId) => {
+  const product = await productModel.findById(productId);
 
   if (!product) {
+    return null;
+  }
+
+  const stock = await stockOfProduct(productId);
+
+  return { product, stock };
+};
+
+const cartItemFilter = (userId, productId) => ({
+  user: userId,
+  items: {
+    $elemMatch: {
+      product: productId,
+    },
+  },
+});
+
+//add a product to the cart of the user
+export const addToCart = async (req, res) => {
+  const { productId } = req.params;
+  const { quantity = 1 } = req.body;
+
+  const productDetails = await getProductAndStock(productId);
+
+  if (!productDetails) {
     return res.status(404).json({
-      message: "Product or variant not found",
+      message: "Product not found",
       success: false,
     });
   }
 
-  const stock = await stockOfVariant(productId, variantId);
+  const { product, stock } = productDetails;
 
   const cart =
     (await cartModel.findOne({ user: req.user._id })) ||
     (await cartModel.create({ user: req.user._id }));
 
   const isProductAlreadyInCart = cart.items.some(
-    (item) =>
-      item.product.toString() === productId &&
-      item.variant.toString() === variantId,
+    (item) => item.product.toString() === productId,
   );
 
   if (isProductAlreadyInCart) {
-    const quantityInCart = cart.items.find(
-      (item) =>
-        item.product.toString() === productId &&
-        item.variant.toString() === variantId,
+    const quantityInCart = cart.items.find((item) =>
+      item.product.toString() === productId,
     ).quantity;
     if (quantityInCart + quantity > stock) {
       return res.status(400).json({
@@ -49,12 +64,8 @@ export const addToCart = async (req, res) => {
       });
     }
 
-    await cartModel.findOneAndUpdate(
-      {
-        user: req.user._id,
-        "items.product": productId,
-        "items.variant": variantId,
-      },
+    const updatedCart = await cartModel.findOneAndUpdate(
+      cartItemFilter(req.user._id, productId),
       { $inc: { "items.$.quantity": quantity } },
       { new: true },
     );
@@ -62,7 +73,7 @@ export const addToCart = async (req, res) => {
     return res.status(200).json({
       message: "cart updated successfully",
       success: true,
-      cart,
+      cart: updatedCart,
     });
   }
 
@@ -75,18 +86,17 @@ export const addToCart = async (req, res) => {
 
   cart.items.push({
     product: productId,
-    variant: variantId,
     quantity,
-    price: product.price
+    price: product.price,
   });
 
-    await cart.save();
+  const updatedCart = await cart.save();
 
-   return res.status(200).json({
+  return res.status(200).json({
     message: "Product added to cart successfully",
     success: true,
-    cart,
-  }); 
+    cart: updatedCart,
+  });
 
 };
 
@@ -112,16 +122,12 @@ export const getCart = async (req, res) => {
 // increment the quantity of a product in the cart of the user
 export const incrementCartItemQuantity = async (req, res) => {
 
-    const { productId, variantId } = req.params;
+  const { productId } = req.params;
+  const productDetails = await getProductAndStock(productId);
 
-    const product = await productModel.findOne({
-        _id: productId,
-        "variants._id": variantId,
-    });
-
-    if(!product){
+  if(!productDetails){
         return res.status(404).json({
-            message: "Product or variant not found",
+            message: "Product not found",
             success: false,
         });
     }
@@ -135,9 +141,11 @@ export const incrementCartItemQuantity = async (req, res) => {
         });
     }
           
-    const stock = await stockOfVariant(productId, variantId);
+    const stock = productDetails.stock;
 
-    const itemQuantityInCart = cart.items.find(item => item.product.toString() === productId && item.variant.toString() === variantId)?.quantity || 0;
+    const itemQuantityInCart = cart.items.find(item =>
+      item.product.toString() === productId,
+    )?.quantity || 0;
     
     if(itemQuantityInCart + 1 > stock){
       return res.status(400).json({
@@ -146,16 +154,23 @@ export const incrementCartItemQuantity = async (req, res) => {
       });
     }
 
-    await cartModel.findOneAndUpdate(
-      { user: req.user._id, "items.product": productId, "items.variant": variantId },
+    const updatedCart = await cartModel.findOneAndUpdate(
+      cartItemFilter(req.user._id, productId),
       { $inc: { "items.$.quantity": 1 } },
       { new: true }
-    ) 
+    );
+
+    if (!updatedCart) {
+      return res.status(404).json({
+        message: "Item not found in cart",
+        success: false,
+      });
+    }
 
     return res.status(200).json({
       message: "Cart item quantity incremented successfully",
       success: true,
-      cart,
+      cart: updatedCart,
     });
 
 };    
@@ -163,7 +178,7 @@ export const incrementCartItemQuantity = async (req, res) => {
 // decrement the quantity of a product in the cart of the user
 export const decrementCartItemQuantity = async (req, res) => {
 
-  const { productId, variantId } = req.params;
+  const { productId } = req.params;
 
   const cart = await cartModel.findOne({ user: req.user._id });
 
@@ -174,7 +189,9 @@ export const decrementCartItemQuantity = async (req, res) => {
     });
   }
 
-  const item = cart.items.find(item => item.product.toString() === productId && item.variant.toString() === variantId);
+  const item = cart.items.find(item =>
+    item.product.toString() === productId,
+  );
 
   if(!item){
     return res.status(404).json({
@@ -190,16 +207,16 @@ export const decrementCartItemQuantity = async (req, res) => {
     });
   }
 
-  await cartModel.findOneAndUpdate(
-    { user: req.user._id, "items.product": productId, "items.variant": variantId },
+  const updatedCart = await cartModel.findOneAndUpdate(
+    cartItemFilter(req.user._id, productId),
     { $inc: { "items.$.quantity": -1 } },
     { new: true }
-  ) 
+  );
 
   return res.status(200).json({
     message: "Cart item quantity decremented successfully",
     success: true,
-    cart,
+    cart: updatedCart,
   });
 
 };    
@@ -207,7 +224,7 @@ export const decrementCartItemQuantity = async (req, res) => {
 // remove an item from the cart of the user
 export const removeCartItem = async (req, res) => {
 
-  const { productId, variantId } = req.params;
+  const { productId } = req.params;
 
   const cart = await cartModel.findOne({ user: req.user._id });
 
@@ -218,7 +235,9 @@ export const removeCartItem = async (req, res) => {
     });
   }
 
-  const itemIndex = cart.items.findIndex(item => item.product.toString() === productId && item.variant.toString() === variantId);
+  const itemIndex = cart.items.findIndex(item =>
+    item.product.toString() === productId,
+  );
 
   if(itemIndex === -1){ 
     return res.status(404).json({
@@ -227,34 +246,43 @@ export const removeCartItem = async (req, res) => {
     });
   }
 
-  await cartModel.findOneAndUpdate(
-    { user: req.user._id },
-    { $pull: { items: { product: productId, variant: variantId } } },
-    { new: true }
-  );
+  cart.items.splice(itemIndex, 1);
+  const updatedCart = await cart.save();
 
   return res.status(200).json({
     message: "Cart item removed successfully",
     success: true,
-    cart,
+    cart: updatedCart,
   });
 
 };
 
 // clear the cart of the user
 export const createOrderController = async (req, res) => {
-
-
-    const cart = await getCartDetails(req.user._id)
+  const cart = await getCartDetails(req.user._id);
 
     if (!cart) {
         return res.status(400).json({
-            message: "Cart is empty",
-            success: false
-        })
+      message: "Cart is empty",
+      success: false,
+    });
     }
 
-    const order = await createOrder({ amount: cart.totalPrice, currency: cart.currency })
+  for (const item of cart.items) {
+    const stock = await stockOfProduct(item.product._id);
+
+    if (item.quantity > stock) {
+      return res.status(400).json({
+        message: `Only ${stock} items left in stock for ${item.product.title}`,
+        success: false,
+      });
+    }
+  }
+
+  const order = await createOrder({
+    amount: cart.totalPrice,
+    currency: cart.currency,
+  });
 
     const payment = await paymentModel.create({
         user: req.user._id,
@@ -268,23 +296,20 @@ export const createOrderController = async (req, res) => {
         orderItems: cart.items.map(item => ({
             title: item.product.title,
             productId: item.product._id,
-            variantId: item.variant,
             quantity: item.quantity,
-            images: item.product.variants.images || item.product.images,
+            images: item.product.images,
             description: item.product.description,
-            price: {
-                amount: item.product.variants.price.amount || item.product.price.amount,
-                currency: item.product.variants.price.currency || item.product.price.currency
-            }
+            price: item.price,
         }))
-    })
+        });
 
     return res.status(200).json({
-        message: "Order created successfully",
-        success: true,
-        order
-    })
-}
+          message: "Order created successfully",
+          success: true,
+          order,
+          payment,
+        });
+      };
 
 // verify the order of the user
 export const verifyOrderController = async (req, res) => {
@@ -297,39 +322,90 @@ export const verifyOrderController = async (req, res) => {
     const payment = await paymentModel.findOne({
         "razorpay.orderId": razorpay_order_id,
         status: "pending"
-    })
+    });
 
     if (!payment) {
         return res.status(400).json({
             message: "Payment not found",
             success: false
-        })
+        });
     }
 
     const isPaymentValid = validatePaymentVerification({
         order_id: razorpay_order_id,
         payment_id: razorpay_payment_id,
-    }, razorpay_signature, config.RAZORPAY_KEY_SECRET)
+    }, razorpay_signature, config.RAZORPAY_KEY_SECRET);
 
     if (!isPaymentValid) {
         payment.status = "failed"
-        await payment.save()
+        await payment.save();
 
         return res.status(400).json({
             message: "Payment verification failed",
             success: false
-        })
+        });
     }
 
-    payment.status = "paid"
+      const session = await mongoose.startSession();
 
-    payment.razorpay.paymentId = razorpay_payment_id
-    payment.razorpay.signature = razorpay_signature
+      try {
+        await session.withTransaction(async () => {
+          const pendingPayment = await paymentModel.findOne({
+            _id: payment._id,
+            status: "pending",
+          }).session(session);
 
-    await payment.save()
+          if (!pendingPayment) {
+            throw new Error("Payment has already been processed");
+          }
+
+          for (const item of pendingPayment.orderItems) {
+            const productFilter = {
+              _id: item.productId,
+              stock: { $gte: item.quantity },
+            };
+            const stockUpdate = { $inc: { stock: -item.quantity } };
+
+            const result = await productModel.updateOne(
+              productFilter,
+              stockUpdate,
+              { session },
+            );
+
+            if (result.modifiedCount !== 1) {
+              throw new Error(`Insufficient stock for ${item.title}`);
+            }
+          }
+
+          pendingPayment.status = "paid";
+          pendingPayment.razorpay.paymentId = razorpay_payment_id;
+          pendingPayment.razorpay.signature = razorpay_signature;
+          await pendingPayment.save({ session });
+
+          await cartModel.updateOne(
+            { user: pendingPayment.user },
+            { $set: { items: [] } },
+            { session },
+          );
+        });
+      } catch (error) {
+        if (error.message.startsWith("Insufficient stock")) {
+          return res.status(409).json({
+            message: error.message,
+            success: false,
+          });
+        }
+
+        return res.status(500).json({
+          message: "Unable to complete payment verification",
+          success: false,
+        });
+      } finally {
+        await session.endSession();
+      }
 
     return res.status(200).json({
         message: "Payment verified successfully",
-        success: true
-    })
-}
+        success: true,
+      });
+    };

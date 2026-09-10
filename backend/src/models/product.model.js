@@ -19,6 +19,11 @@ const productSchema = new mongoose.Schema({
        type: priceSchema,
        required: true
     },
+    stock: {
+        type: Number,
+        default: 0,
+        min: 0
+    },
     images:[
         {
             url:{
@@ -27,29 +32,6 @@ const productSchema = new mongoose.Schema({
             }
         }
     ],
-    variants:[
-        {
-            images:[
-                {
-                    url:{
-                        type: String,
-                        required: true
-                    }
-                }
-            ],
-            stock :{
-                type: Number,
-                default: 0
-            },
-            attributes:{
-                type: Map,
-                of: String
-            },
-            price:{
-                type: priceSchema,
-            }
-        }
-    ]
 }, { timestamps: true });
 
 const productModel = mongoose.model('product', productSchema);

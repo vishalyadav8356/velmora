@@ -3,6 +3,8 @@ import cookieParser from "cookie-parser";
 import morgan from "morgan";
 import authRouter from "./routes/auth.routes.js";
 import productRouter from "./routes/product.routes.js";
+import cartRouter from "./routes/cart.routes.js";
+import feedbackRouter from "./routes/feedback.routes.js";
 import passport from "passport";
 import {Strategy as GoogleStrategy} from "passport-google-oauth20";
 import {config} from "./config/config.js";
@@ -43,9 +45,9 @@ app.use("/api/auth", authRouter);
 // product routes
 app.use("/api/products", productRouter);
 
-// default route
-app.get("/", (req, res)=>{
-    res.send("Welcome to the Velmora API");
-})
+// cart routes
+app.use("/api/cart", cartRouter);
 
+// feedback routes
+app.use("/api/feedback", feedbackRouter);
 export default app;

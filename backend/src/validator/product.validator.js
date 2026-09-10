@@ -16,11 +16,15 @@ export const createProductValidator = [
 
     body("description")
         .notEmpty().withMessage("Description is required")
-        .isLength({ min: 10 }).withMessage("Description must be at least 10 characters long"),    
+        .isLength({ min: 10 }).withMessage("Description must be at least 10 characters long"),
 
-    body("price")
+    body("price.amount")
         .notEmpty().withMessage("Price is required")
-        .isFloat({ gt: 0 }).withMessage("Price must be a positive number"),    
+        .isFloat({ gt: 0 }).withMessage("Price must be a positive number"),
+
+    body("price.currency")
+        .optional()
+        .isIn(["USD", "EUR", "GBP", "JPY", "INR"]).withMessage("Invalid currency"),
 
     validateRequest
 ]

@@ -30,6 +30,7 @@ export const createProduct = async (req, res) => {
   });
 };
 
+// get all the products of the seller
 export const getProductsSeller = async (req, res) => {
   const seller = req.user;
 
@@ -42,6 +43,7 @@ export const getProductsSeller = async (req, res) => {
   });
 };
 
+// get all the products of the buyer
 export const getAllProducts = async (req, res) => {
   const products = await productModel.find();
 
@@ -52,6 +54,7 @@ export const getAllProducts = async (req, res) => {
   });
 };
 
+// get product details by id
 export const getProductDetails = async (req, res) => {
   const { id } = req.params;
 
@@ -71,6 +74,7 @@ export const getProductDetails = async (req, res) => {
   });
 };
 
+// add a new variant to a product
 export const addProductVariant = async (req, res) => {
   const productId = req.params.productId;
   const product = await productModel.findOne({
@@ -101,16 +105,19 @@ export const addProductVariant = async (req, res) => {
     ).map((image) => images.push(image));
   }
 
-  const price = req.body.price;
+  const price = req.body.priceAmount
   const stock = req.body.stock;
   const attributes = JSON.parse(req.body.attributes || "{}");
 
 
     product.variants.push({
-    price,
-    stock,
-    attributes,
-    images,
+     images,
+        price: {
+            amount: Number(price) || product.price.amount,
+            currency: req.body.priceCurrency || product.price.currency
+        },
+        stock,
+        attributes
   });
 
     await product.save();

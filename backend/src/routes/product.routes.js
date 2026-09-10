@@ -18,7 +18,7 @@ const router = Router();
 //description: Create a new product
 //access Private (Seller only)
 //at a time 5 images can be uploaded
-router.post("/", authenticateSeller, createProductValidator, upload.array("images", 5), createProduct)
+router.post("/", authenticateSeller, upload.array("images", 5),createProductValidator, createProduct)
 
 //@route GET /api/products/seller
 //description: Get products for a seller
